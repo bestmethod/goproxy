@@ -89,7 +89,7 @@ func (c *config) main() {
 	for i, domain := range c.Domain {
 		c.Domain[i].remote, err = url.Parse(domain.Target)
 		if err != nil {
-			c.log.Fatalf(4,"Cannot create remote handle: %s",err)
+			c.log.Fatalf(6,"Cannot create remote handle: %s",err)
 		}
 		c.Domain[i].proxy = httputil.NewSingleHostReverseProxy(c.Domain[i].remote)
 		if domain.AcceptSelfSigned == true {
@@ -123,10 +123,10 @@ func (c *config) startListener() {
 			},
 		}
 		c.log.Info("Starting webserver v1.0")
-		go http.ListenAndServe(c.BindAddress, certManager.HTTPHandler(nil))
+		go c.ListenServeWrapper(c.BindAddress, certManager.HTTPHandler(nil))
 		err = server.ListenAndServeTLS("", "")
 		if err != nil {
-			c.log.Fatal(fmt.Sprintf("Could not run webserver: %s", err), 4)
+			c.log.Fatal(fmt.Sprintf("Could not run webserver: %s", err), 5)
 		}
 	} else {
 		c.log.Info("Starting webserver v1.0")
@@ -141,5 +141,12 @@ func handler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) 
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = mux.Vars(r)["rest"]
 		p.ServeHTTP(w, r)
+	}
+}
+
+func (c *config) ListenServeWrapper(addr string, handler http.Handler) {
+	err := http.ListenAndServe(addr, handler)
+	if err != nil {
+		c.log.Fatal(fmt.Sprintf("Could not run webserver: %s", err), 4)
 	}
 }
