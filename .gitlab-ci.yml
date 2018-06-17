@@ -9,7 +9,6 @@ before_script:
     - go get -u "github.com/gorilla/mux"
     - cd /builds/bestmethod/goproxy
     - mkdir -p bin/linux
-    - mkdir bin/windows
     - mkdir bin/osx
 
 build:
@@ -17,9 +16,7 @@ build:
     script:
         - env GOOS=linux GOARCH=amd64 go build -o bin/linux/goproxy
         - env GOODS=osx GOARCH=amd64 go build -o bin/osx/goproxy
-        - env GOOS=windows GOARCH=amd64 go build -o bin/windows/goproxy.exe
     artifacts:
         paths:
             - bin/linux
-            - bin/windows
             - bin/osx
