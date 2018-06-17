@@ -1,0 +1,25 @@
+# log every proxy request
+LogProxyRequests=true
+
+# bind address to use. If enabling TLS, bind address must be :80 to allow for letsencrypt to work
+BindAddress = ":8080"
+
+# should we use TLS, and TLS bind address. This will auto-cert the domains when needed
+TlsEnabled = false
+TlsBindAddress = ":4433"
+
+# domain forward to TLS (https) target, accepting invalid cert on target
+[[domain]]
+name="example.com"
+target="https://internal.example.com"
+acceptSelfSigned=true
+
+# domain forward to a non-tls target
+[[domain]]
+name="example.org"
+target="http://internal.example.org"
+
+# forward www as well :) Wildcards not currently supported. www.example.org/... will forward to internal.example.org/wwwsite/...
+[[domain]]
+name="www.example.org"
+target="http://internal.example.org/wwwsite"
