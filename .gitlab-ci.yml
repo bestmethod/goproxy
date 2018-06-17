@@ -10,13 +10,17 @@ before_script:
     - cd /builds/bestmethod/goproxy
     - mkdir -p bin/linux
     - mkdir bin/osx
+    - mkdir bin/windows
 
 build:
     stage: build
     script:
         - env GOOS=linux GOARCH=amd64 go build -o bin/linux/goproxy
         - env GOODS=osx GOARCH=amd64 go build -o bin/osx/goproxy
+        - env GOOS=windows GOARCH=amd64 go build -o bin/windows/goproxy
     artifacts:
         paths:
             - bin/linux
             - bin/osx
+            - bin/windows
+
