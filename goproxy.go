@@ -27,6 +27,7 @@ type config struct {
 
 type proxy struct {
 	Domain string
+	Regex bool
 	Target string
 	AcceptSelfSigned bool
 	remote *url.URL
@@ -36,6 +37,7 @@ type proxy struct {
 
 type redirect struct {
 	Domain string
+	Regex bool
 	Target string
 	StatusCode int
 }
@@ -43,7 +45,7 @@ type redirect struct {
 func (c *config) findProxyHostOffset(host string) int {
 	h := strings.Split(host,":")[0]
 	for i := range c.Proxy {
-		if c.Proxy[i].Domain[0] == '^' {
+		if c.Proxy[i].Domain[0] == '^' || c.Proxy[i].Regex == true {
 			match, err := regexp.MatchString(c.Proxy[i].Domain, h)
 			if err != nil {
 				return -1
@@ -61,7 +63,7 @@ func (c *config) findProxyHostOffset(host string) int {
 func (c *config) findRedirectHostOffset(host string) int {
 	h := strings.Split(host,":")[0]
 	for i := range c.Redirect {
-		if c.Redirect[i].Domain[0] == '^' {
+		if c.Redirect[i].Domain[0] == '^' || c.Redirect[i].Regex == true {
 			match, err := regexp.MatchString(c.Redirect[i].Domain, h)
 			if err != nil {
 				return -1

@@ -29,7 +29,9 @@ target="https://www.google.co.uk"
 statusCode=301
 
 # using regex to create default action and override the default Forbidden 403
+# you can also use regex=true instead of the starting regex ^
 [[redirect]]
-domain='^.*'
+domain='.*'
+regex=true
 target="https://www.google.co.uk"
 statusCode=307
