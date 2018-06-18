@@ -19,59 +19,35 @@ type config struct {
 	BindAddress string
 	TlsEnabled bool
 	TlsBindAddress string
-	Proxy []proxy
-	Redirect []redirect
+	Rule []rule
 	LogRequests bool
 	log *Logger.Logger
 }
 
-type proxy struct {
+type rule struct {
+	Job string
 	Domain string
 	Regex bool
 	Target string
+	StatusCode int
 	AcceptSelfSigned bool
 	remote *url.URL
 	proxy *httputil.ReverseProxy
 	r *mux.Router
 }
 
-type redirect struct {
-	Domain string
-	Regex bool
-	Target string
-	StatusCode int
-}
-
-func (c *config) findProxyHostOffset(host string) int {
+func (c *config) findHostOffset(host string) int {
 	h := strings.Split(host,":")[0]
-	for i := range c.Proxy {
-		if c.Proxy[i].Domain[0] == '^' || c.Proxy[i].Regex == true {
-			match, err := regexp.MatchString(c.Proxy[i].Domain, h)
+	for i := range c.Rule {
+		if c.Rule[i].Domain[0] == '^' || c.Rule[i].Regex == true {
+			match, err := regexp.MatchString(c.Rule[i].Domain, h)
 			if err != nil {
 				return -1
 			}
 			if match == true {
 				return i
 			}
-		} else if c.Proxy[i].Domain == h {
-			return i
-		}
-	}
-	return -1
-}
-
-func (c *config) findRedirectHostOffset(host string) int {
-	h := strings.Split(host,":")[0]
-	for i := range c.Redirect {
-		if c.Redirect[i].Domain[0] == '^' || c.Redirect[i].Regex == true {
-			match, err := regexp.MatchString(c.Redirect[i].Domain, h)
-			if err != nil {
-				return -1
-			}
-			if match == true {
-				return i
-			}
-		} else if c.Redirect[i].Domain == h {
+		} else if c.Rule[i].Domain == h {
 			return i
 		}
 	}
@@ -79,24 +55,20 @@ func (c *config) findRedirectHostOffset(host string) int {
 }
 
 func (c *config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	proxyMatch := c.findProxyHostOffset(r.Host)
+	proxyMatch := c.findHostOffset(r.Host)
 	if proxyMatch != -1 {
 		if c.LogRequests == true {
-			c.log.Info("Client=%s Host=%s Path=%s Mod=Proxy Target=%s",r.RemoteAddr,r.Host,r.URL.Path,c.Proxy[proxyMatch].Target)
+			c.log.Info("Client=%s Host=%s Path=%s Mod=Proxy Target=%s",r.RemoteAddr,r.Host,r.URL.Path,c.Rule[proxyMatch].Job)
 		}
-		handler := c.Proxy[proxyMatch].r
-		handler.ServeHTTP(w,r)
-	} else {
-		redirectMatch := c.findRedirectHostOffset(r.Host)
-		if redirectMatch != -1 {
-			if c.LogRequests == true {
-				c.log.Info("Client=%s Host=%s Path=%s Mod=Redirect StatusCode=%v Target=%s",r.RemoteAddr,r.Host,r.URL.Path,c.Redirect[redirectMatch].StatusCode,c.Redirect[redirectMatch].Target)
-			}
-			http.Redirect(w, r, c.Redirect[redirectMatch].Target, c.Redirect[redirectMatch].StatusCode)
+		if c.Rule[proxyMatch].Job == "proxy" {
+			handler := c.Rule[proxyMatch].r
+			handler.ServeHTTP(w, r)
 		} else {
-			c.log.Info("Client=%s Host=%s Path=%s Mod=Forbidden StatusCode=403",r.RemoteAddr,r.Host,r.URL.Path)
-			http.Error(w, "Forbidden", 403)
+			http.Redirect(w, r, c.Rule[proxyMatch].Target, c.Rule[proxyMatch].StatusCode)
 		}
+	} else {
+		c.log.Info("Client=%s Host=%s Path=%s Mod=Forbidden StatusCode=403",r.RemoteAddr,r.Host,r.URL.Path)
+		http.Error(w, "Forbidden", 403)
 	}
 }
 
@@ -131,17 +103,19 @@ func main() {
 
 func (c *config) main() {
 	var err error
-	for i := range c.Proxy {
-		c.Proxy[i].remote, err = url.Parse(c.Proxy[i].Target)
-		if err != nil {
-			c.log.Fatalf(6,"Cannot create remote handle: %s",err)
+	for i := range c.Rule {
+		if c.Rule[i].Job == "proxy" {
+			c.Rule[i].remote, err = url.Parse(c.Rule[i].Target)
+			if err != nil {
+				c.log.Fatalf(6, "Cannot create remote handle: %s", err)
+			}
+			c.Rule[i].proxy = httputil.NewSingleHostReverseProxy(c.Rule[i].remote)
+			if c.Rule[i].AcceptSelfSigned == true {
+				c.Rule[i].proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+			}
+			c.Rule[i].r = mux.NewRouter()
+			c.Rule[i].r.HandleFunc("/{rest:.*}", c.handler(c.Rule[i].proxy))
 		}
-		c.Proxy[i].proxy = httputil.NewSingleHostReverseProxy(c.Proxy[i].remote)
-		if c.Proxy[i].AcceptSelfSigned == true {
-			c.Proxy[i].proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-		}
-		c.Proxy[i].r = mux.NewRouter()
-		c.Proxy[i].r.HandleFunc("/{rest:.*}", c.handler(c.Proxy[i].proxy))
 	}
 	c.startListener()
 }
