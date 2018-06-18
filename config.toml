@@ -1,5 +1,5 @@
 # log every proxy request
-LogProxyRequests=true
+LogRequests=true
 
 # bind address to use. If enabling TLS, bind address must be :80 to allow for letsencrypt to work
 BindAddress = ":8080"
@@ -9,17 +9,27 @@ TlsEnabled = false
 TlsBindAddress = ":4433"
 
 # domain forward to TLS (https) target, accepting invalid cert on target
-[[domain]]
-name="example.com"
+[[proxy]]
+domain="example.com"
 target="https://internal.example.com"
 acceptSelfSigned=true
 
-# domain forward to a non-tls target
-[[domain]]
-name="example.org"
-target="http://internal.example.org"
-
-# forward www as well :) Wildcards not currently supported. www.example.org/... will forward to internal.example.org/wwwsite/...
-[[domain]]
-name="www.example.org"
+# forward regex match as well :) *.example.org/... will forward to internal.example.org/wwwsite/...
+# regex matches example.org itself too. To grab only +.example.org, but not example.org itself: '^(.+\.)example.org'
+# first character in domain '^' denounces regex search
+[[proxy]]
+domain='^(.+\.|)example.org'
 target="http://internal.example.org/wwwsite"
+
+# redirecting a domain to another one
+# https://en.wikipedia.org/wiki/List_of_HTTP_status_codes#3xx_Redirection
+[[redirect]]
+domain="www.example.com"
+target="https://www.google.co.uk"
+statusCode=301
+
+# using regex to create default action and override the default Forbidden 403
+[[redirect]]
+domain='^.*'
+target="https://www.google.co.uk"
+statusCode=307

@@ -1,56 +1,100 @@
 package main
 
 import (
-	"os"
 	"github.com/bestmethod/go-logger"
+	"net/url"
+	"net/http/httputil"
+	"os"
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"net/http"
-	"strings"
-	"golang.org/x/crypto/acme/autocert"
 	"crypto/tls"
-	"net/http/httputil"
 	"github.com/gorilla/mux"
-	"net/url"
+	"golang.org/x/crypto/acme/autocert"
+	"strings"
+	"regexp"
 )
 
 type config struct {
 	BindAddress string
 	TlsEnabled bool
 	TlsBindAddress string
-	Domain []domain
-	LogProxyRequests bool
+	Proxy []proxy
+	Redirect []redirect
+	LogRequests bool
 	log *Logger.Logger
-	hs *HostSwitch
 }
 
-type domain struct {
-	Name string
+type proxy struct {
+	Domain string
 	Target string
+	AcceptSelfSigned bool
 	remote *url.URL
 	proxy *httputil.ReverseProxy
-	AcceptSelfSigned bool
+	r *mux.Router
 }
 
-type HostSwitchMapper map[string]http.Handler
-
-type HostSwitch struct {
-	HostSwitchMap map[string]http.Handler
-	LogProxyRequests bool
-	log *Logger.Logger
+type redirect struct {
+	Domain string
+	Target string
+	StatusCode int
 }
 
-func (hs HostSwitch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if handler := hs.HostSwitchMap[strings.Split(r.Host,":")[0]]; handler != nil {
-		if hs.LogProxyRequests == true {
-			hs.log.Info("Client=%s Host=%s Path=%s",r.RemoteAddr,r.Host,r.URL.Path)
+func (c *config) findProxyHostOffset(host string) int {
+	h := strings.Split(host,":")[0]
+	for i := range c.Proxy {
+		if c.Proxy[i].Domain[0] == '^' {
+			match, err := regexp.MatchString(c.Proxy[i].Domain, h)
+			if err != nil {
+				return -1
+			}
+			if match == true {
+				return i
+			}
+		} else if c.Proxy[i].Domain == h {
+			return i
 		}
-		handler.ServeHTTP(w, r)
+	}
+	return -1
+}
+
+func (c *config) findRedirectHostOffset(host string) int {
+	h := strings.Split(host,":")[0]
+	for i := range c.Redirect {
+		if c.Redirect[i].Domain[0] == '^' {
+			match, err := regexp.MatchString(c.Redirect[i].Domain, h)
+			if err != nil {
+				return -1
+			}
+			if match == true {
+				return i
+			}
+		} else if c.Redirect[i].Domain == h {
+			return i
+		}
+	}
+	return -1
+}
+
+func (c *config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	proxyMatch := c.findProxyHostOffset(r.Host)
+	if proxyMatch != -1 {
+		if c.LogRequests == true {
+			c.log.Info("Client=%s Host=%s Path=%s Mod=Proxy Target=%s",r.RemoteAddr,r.Host,r.URL.Path,c.Proxy[proxyMatch].Target)
+		}
+		handler := c.Proxy[proxyMatch].r
+		handler.ServeHTTP(w,r)
 	} else {
-		if hs.LogProxyRequests == true {
-			hs.log.Info("Client=%s Host=%s Path=%s [403] Forbidden",r.RemoteAddr,r.Host,r.URL.Path)
+		redirectMatch := c.findRedirectHostOffset(r.Host)
+		if redirectMatch != -1 {
+			if c.LogRequests == true {
+				c.log.Info("Client=%s Host=%s Path=%s Mod=Redirect StatusCode=%v Target=%s",r.RemoteAddr,r.Host,r.URL.Path,c.Redirect[redirectMatch].StatusCode,c.Redirect[redirectMatch].Target)
+			}
+			http.Redirect(w, r, c.Redirect[redirectMatch].Target, c.Redirect[redirectMatch].StatusCode)
+		} else {
+			c.log.Info("Client=%s Host=%s Path=%s Mod=Forbidden StatusCode=403",r.RemoteAddr,r.Host,r.URL.Path)
+			http.Error(w, "Forbidden", 403)
 		}
-		http.Error(w, "Forbidden", 403)
 	}
 }
 
@@ -84,26 +128,19 @@ func main() {
 }
 
 func (c *config) main() {
-	hs := make(HostSwitchMapper)
 	var err error
-	for i, domain := range c.Domain {
-		c.Domain[i].remote, err = url.Parse(domain.Target)
+	for i := range c.Proxy {
+		c.Proxy[i].remote, err = url.Parse(c.Proxy[i].Target)
 		if err != nil {
 			c.log.Fatalf(6,"Cannot create remote handle: %s",err)
 		}
-		c.Domain[i].proxy = httputil.NewSingleHostReverseProxy(c.Domain[i].remote)
-		if domain.AcceptSelfSigned == true {
-			c.Domain[i].proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		c.Proxy[i].proxy = httputil.NewSingleHostReverseProxy(c.Proxy[i].remote)
+		if c.Proxy[i].AcceptSelfSigned == true {
+			c.Proxy[i].proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 		}
-		r := mux.NewRouter()
-		r.HandleFunc("/{rest:.*}", handler(c.Domain[i].proxy))
-		hs[domain.Name] = r
+		c.Proxy[i].r = mux.NewRouter()
+		c.Proxy[i].r.HandleFunc("/{rest:.*}", c.handler(c.Proxy[i].proxy))
 	}
-	hsm := HostSwitch{}
-	c.hs = &hsm
-	c.hs.HostSwitchMap = hs
-	c.hs.log = c.log
-	c.hs.LogProxyRequests = c.LogProxyRequests
 	c.startListener()
 }
 
@@ -117,27 +154,27 @@ func (c *config) startListener() {
 
 		server := &http.Server{
 			Addr:    c.TlsBindAddress,
-			Handler: c.hs,
+			Handler: c,
 			TLSConfig: &tls.Config{
 				GetCertificate: certManager.GetCertificate,
 			},
 		}
-		c.log.Info("Starting webserver v1.0")
+		c.log.Info("Starting webserver v1.1")
 		go c.ListenServeWrapper(c.BindAddress, certManager.HTTPHandler(nil))
 		err = server.ListenAndServeTLS("", "")
 		if err != nil {
 			c.log.Fatal(fmt.Sprintf("Could not run webserver: %s", err), 5)
 		}
 	} else {
-		c.log.Info("Starting webserver v1.0")
-		err = http.ListenAndServe(c.BindAddress,c.hs)
+		c.log.Info("Starting webserver v1.1")
+		err = http.ListenAndServe(c.BindAddress,c)
 		if err != nil {
 			c.log.Fatal(fmt.Sprintf("Could not run webserver: %s", err), 4)
 		}
 	}
 }
 
-func handler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+func (c *config) handler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = mux.Vars(r)["rest"]
 		p.ServeHTTP(w, r)
