@@ -8,11 +8,20 @@ BindAddress = ":8080"
 TlsEnabled = false
 TlsBindAddress = ":4433"
 
-# domain forward to TLS (https) target, accepting invalid cert on target
+# domain and path forward to TLS (https) target, accepting invalid cert on target
+[[rule]]
+job="proxy"
+domain="example.com"
+path="/webdav"
+target="https://webdav.example.com/myfiles"
+acceptSelfSigned=true
+
+# domain forward to TLS (https) target, accepting invalid cert on target, and rewrite host header to the target host
 [[rule]]
 job="proxy"
 domain="example.com"
 target="https://internal.example.com"
+rewriteHostHeader="internal.example.com"
 acceptSelfSigned=true
 
 # forward regex match as well :) *.example.org/... will forward to internal.example.org/wwwsite/...
