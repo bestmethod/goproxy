@@ -153,7 +153,9 @@ func (c *config) main() {
 				c.Rule[i].proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 			}
 			c.Rule[i].r = mux.NewRouter()
-			if len(c.Rule[i].Path) > 0 && c.Rule[i].Path[0] == '/' {
+			if len(c.Rule[i].Path) == 0 {
+				c.Rule[i].r.HandleFunc(fmt.Sprintf("/%s", "{rest:.*}"), c.handler(c.Rule[i].proxy))
+			} else if len(c.Rule[i].Path) > 0 && c.Rule[i].Path[0] == '/' {
 				c.Rule[i].r.HandleFunc(fmt.Sprintf("%s", c.Rule[i].Path), c.handler(c.Rule[i].proxy))
 				c.Rule[i].r.HandleFunc(fmt.Sprintf("%s/%s", c.Rule[i].Path, "{rest:.*}"), c.handler(c.Rule[i].proxy))
 			} else {
@@ -180,14 +182,14 @@ func (c *config) startListener() {
 				GetCertificate: certManager.GetCertificate,
 			},
 		}
-		c.log.Info("Starting webserver v1.2")
+		c.log.Info("Starting webserver v1.3")
 		go c.ListenServeWrapper(c.BindAddress, certManager.HTTPHandler(nil))
 		err = server.ListenAndServeTLS("", "")
 		if err != nil {
 			c.log.Fatal(fmt.Sprintf("Could not run webserver: %s", err), 5)
 		}
 	} else {
-		c.log.Info("Starting webserver v1.2")
+		c.log.Info("Starting webserver v1.3")
 		err = http.ListenAndServe(c.BindAddress, c)
 		if err != nil {
 			c.log.Fatal(fmt.Sprintf("Could not run webserver: %s", err), 4)

@@ -30,4 +30,4 @@ Rules are evaluated top to bottom. If a match is found, that rule will be execut
 * add support for custom behaviours for http requests when https is enabled
 
 ### Version
-###### 1.2
+###### 1.3
