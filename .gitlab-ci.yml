@@ -10,7 +10,7 @@ before_script:
     - go get -u "github.com/haisum/recaptcha"
     - go get -u "github.com/leonelquinteros/gorand"
     - go get -u "github.com/yookoala/gofast"
-    - go get -u "github.com/aws/aws-sdk-go/..."
+    - go get -u "github.com/aws/aws-sdk-go"
     - cd /builds/bestmethod/goproxy
     - mkdir -p bin/linux
     - mkdir bin/osx
