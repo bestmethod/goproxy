@@ -1,0 +1,44 @@
+### specify multiple times for multiple destinations
+### for each entry, specify one destination
+[[destination]]
+# for aws, username=key_id and password=secret_key
+username=""
+password=""
+# s3Name: awsLocation;bucket-name
+awsS3=""
+# sqsName
+awsSqs=""
+# email and ses
+host=""
+from=""
+to=""
+
+# name, required must be at least 3 characters long
+[[variable]]
+postField="name"
+variableName="name"
+required=true
+regexMatch=".{3,}"
+regexError="Name must be at least 3 characters long"
+
+# email, required regex matched
+[[variable]]
+postField="email"
+variableName="email"
+required=true
+regexMatch='.+\@.+\..+'
+regexError="Invalid email entered"
+
+# country, required, no need for regex match
+[[variable]]
+postField="country"
+variableName="country"
+required=true
+
+# message, required, must be at lest 10 characters
+[[variable]]
+postField="message"
+variableName="message"
+required=true
+regexMatch=".{10,}"
+regexError="Message too short"

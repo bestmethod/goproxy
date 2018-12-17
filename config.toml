@@ -40,6 +40,48 @@ domain="www.example.com"
 target="https://www.google.co.uk"
 statusCode=301
 
+# serving local directory and it's subdirs to a particular path, using fastcgi
+# will route static.example.com/myapp2/* from /var/www/myapp2
+# fastcgi currently only supports php
+# this needs to be above the myapp function, as otherwise myapp rule would match when calling myapp2
+# fastcgiAddress can be unix:/path/to/.sock OR tcp:127.0.0.1:9555
+[[rule]]
+job="serve"
+domain="static.example.com"
+path="/myapp2"
+fastcgiAddress="tcp:127.0.0.1:9555"
+target="/var/www/myapp2"
+
+# THIS ON IS ADVANCED: DEALING WITH FORM DATA TO SEND A MESSAGE
+# serving local directory and it's subdirs to a particular path
+# will route static.example.com/myapp/* from /var/www/myapp
+# it will also use the email templating engine to serve the contact us page that this page refers to
+[[rule]]
+job="serve"
+domain="static.example.com"
+path="/myapp"
+target="/var/www/myapp"
+form="./myapp-email.toml"
+# the target path - what should be matched to serve as form. Could be contact.html, or just empty if it's single-file website
+formTargetPath=""
+# formFile is a path to use for the form in question
+formFile="/var/www/myapp/index.html"
+# name of a variable which must be set for us to know that the form has been submitted
+formSubmittedVariable="formSubmitted"
+# in summary static.example.com/myapp/* will be served from /var/www/myapp
+# static.example.com/myapp/ itself will be served by index.html which will go through the form filter
+# setting formTargetPath to e.g. 'contact' would mean static.example.com/myapp/contact would go through the filter
+reCaptchaSecret="secretKeyHere"
+
+# serving local directory and it's subdirs to a particular path
+# will route static.example.com/* from /var/www/static
+# note that having the above rules override static.example.com/myapp[2], which will route differently
+# (since rules are matched top to bottom)
+[[rule]]
+job="serve"
+domain="static.example.com"
+target="/var/www/static"
+
 # using regex to create default action and override the default Forbidden 403
 # you can also use regex=true instead of the starting regex ^
 [[rule]]

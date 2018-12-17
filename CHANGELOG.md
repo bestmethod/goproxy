@@ -8,3 +8,7 @@
 ## 1.3
 * fixed issue where there is no path on source/target and Path="" resulted in incorrect routing (404)
 
+## 1.4
+* added option to serve static files
+* added option to serve static files and send .php files through fastcgi
+* add option for serving email forms on static websites (since most static websites have an email form)

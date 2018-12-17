@@ -22,6 +22,8 @@ $ goproxy config.toml
 * add custom default action using wild regex grab
 * custom listen forward path for proxy
 * rewrite host header during requests
+* static website hosting
+* basic php website hosting using fastcgi (NOTE: if the website relies on .htaccess files for URL rewrites or other such voodoo, this will not work - clue in the BASIC)
 
 ### Note
 Rules are evaluated top to bottom. If a match is found, that rule will be executed.
@@ -30,4 +32,4 @@ Rules are evaluated top to bottom. If a match is found, that rule will be execut
 * add support for custom behaviours for http requests when https is enabled
 
 ### Version
-###### 1.3
+###### 1.4

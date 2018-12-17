@@ -3,10 +3,14 @@ stages:
     - build
   
 before_script:
-    - go get -u "github.com/bestmethod/go-logger"
     - go get -u "github.com/BurntSushi/toml"
+    - go get -u "github.com/bestmethod/go-logger"
     - go get -u "golang.org/x/crypto/acme/autocert"
     - go get -u "github.com/gorilla/mux"
+    - go get -u "github.com/haisum/recaptcha"
+    - go get -u "github.com/leonelquinteros/gorand"
+    - go get -u "github.com/yookoala/gofast"
+    - go get -u "github.com/aws/aws-sdk-go/..."
     - cd /builds/bestmethod/goproxy
     - mkdir -p bin/linux
     - mkdir bin/osx

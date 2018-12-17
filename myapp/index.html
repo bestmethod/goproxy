@@ -1,0 +1,78 @@
+<html>
+<head>
+    <script src='https://www.google.com/recaptcha/api.js'></script>
+    <link rel="stylesheet" type="text/css" href="index.css"/>
+    <script src="index.js"></script>
+    <title>Contact Us</title>
+</head>
+
+
+<!-- run javascript countrySelect with the value of "country" dropdown.
+ the function will preselect last chosen field, if the form was previously submitted in this session
+ -->
+<body onload="countrySelect({{ .country }})">
+
+
+<!-- only display success message on successful form submission -->
+{{ if .success }}
+<div class="success">Email sent successfully.</div>
+{{ end }}
+
+
+<!-- only display fail message on failure for form submission -->
+{{ if .fail }}
+<div class="fail">Error submitting form: {{ .reason }}</div>
+{{ end }}
+
+
+<!-- only display form if the submission was not a success (either fail to no-error fresh page load)
+ We don't want the form displayed once sending is successful
+ -->
+{{ if not .success }}
+<div class="container">
+    <form method="post">
+
+        <label for="name">Name</label>
+        <!-- pre-populate the value of the name field with the value that was already submitted (if it was).
+        useful if submission failed, we want to display error message and allow user to fix their form and resubmit.
+         value will be "" if the form has never been submitted, as it should be -->
+        <input type="text" id="name" name="name" placeholder="Your name.." value="{{ .name }}">
+
+        <label for="email">Email</label>
+        <input type="text" id="email" name="email" placeholder="Your email.." value="{{ .email }}">
+
+        <label for="country">Country</label>
+        <select id="country" name="country">
+            <option id="country-uk" value="uk">UK</option>
+            <option id="country-canada" value="canada">Canada</option>
+            <option id="country-usa" value="usa">USA</option>
+        </select>
+
+        <label for="message">Message</label>
+        <textarea id="message" name="message" placeholder="Write something.." style="height:200px">{{ .message }}</textarea>
+
+        <div class="g-recaptcha" data-sitekey="some-captcha-site-key"></div>
+        <input type="hidden" name="formSubmitted" value="formSubmitted">
+        <br />
+        <input type="submit" value="Submit">
+
+    </form>
+</div>
+{{ end }}
+</body>
+</html>
+
+<!-- usage:
+Fields available by default:
+    .success - set to true on successful form submission
+    .fail - set to true on failure to submit for whatever reason
+    .reason - set to a string containing details of failure
+Available usage:
+    if .boolVariable ... end - will only display content between if ... end if the .boolVariable is TRUE
+    if not .boolVariable ... end - will only display content between if ... end if the .boolVariable is FALSE
+    .stringVariable - will place content of .stringVariable in place of this
+Config toml must specify filter config, like so:
+    email="./myapp-email.toml"
+Filter config must specify mappings and check (map of post/get variable to internal name and what checks to do on it)
+Filter config also specifies where to send the message. Available options are: email, aws-sqs, aws-ses, aws-s3
+-->
